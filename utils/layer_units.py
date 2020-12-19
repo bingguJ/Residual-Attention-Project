@@ -37,18 +37,23 @@ def residual_units(input,layer_params):
     output = tf.keras.layers.Add()([cur_input,identity_tensor])
     return output
 
-def hour_glass_unit(input,r,skip_connection=False,\
-        layer_params=[[32,3,1,0] for _ in range(3)]):
+def hour_glass_unit(input,r,skip_connection=False,
+        skip_mode = 1, layer_params=[[32,3,1,0] for _ in range(3)]):
 # this function create the hourglass shaped network in the soft mask branch
 # first a maxpool followed by r residual units 
 # another maxpool followed by 2r residual units
 # upsample then another r residual units
 # a final upsample 
-# if skip_connection enabled then at the second maxpool it branched off going
-# through one residual units and added back after the first upsample layer
+# if skip_connection enabled then at the first and second maxpool it branched off going
+# through one residual units and added back after the second and first upsample layer
+# skip_mode = 1 will only implement the inner skip layer
+# skip_mode = 2 will implement both the inner and outer skip layer
 # layer_params is the parameter for resid unit, modify it to get residual units
 # with different convolution layers
+    if not(skip_mode in [1,2]):
+        raise Exception('skip mode unknown')
     cur_input = input
+    identity0 = input
     cur_input = tf.keras.layers.MaxPool2D(pool_size=(2,2))(cur_input)
     for _ in range(r):
         cur_input = residual_units(cur_input,layer_params)
@@ -61,11 +66,11 @@ def hour_glass_unit(input,r,skip_connection=False,\
     
     cur_input = tf.keras.layers.UpSampling2D(size=(2,2),\
             interpolation='bilinear')(cur_input)
-    # skip connection addition 
+    # inner skip connection 
     if skip_connection:
         filters = cur_input.shape[-1]
         identity = residual_units(identity,\
-                [[filters,3,1,0] for _ in range(3)])
+                layer_params)
         cur_input = tf.keras.layers.Add()([cur_input,identity])
 
     for _ in range(r):
@@ -73,12 +78,19 @@ def hour_glass_unit(input,r,skip_connection=False,\
     filters = cur_input.shape[-1]
     output = tf.keras.layers.UpSampling2D(size=(2,2),\
             interpolation='bilinear')(cur_input)
+    
+    # outer skip connection
+    if skip_connection and skip_mode == 2:
+        filters = output.shape[-1]
+        identity0 = residual_units(identity0,\
+                layer_params)
+        output = tf.keras.layers.Add()([output,identity0])
 
     return output
     
 
-def attention_unit(input,unit_params=(1,2,1),resid_layer_params = \
-        [[32,3,1,0] for _ in range(3)]):
+def attention_unit(input,unit_params=(1,2,1),skip_connection=False,skip_mode=1,
+        resid_layer_params = [[32,3,1,0] for _ in range(3)]):
 # unit parameter is a tuple consist of the p,t,r in the paper 
 # Residual Attention network for Image Classification
 # attention_unit consist of two branches soft mask branch and trunk branch
@@ -95,8 +107,8 @@ def attention_unit(input,unit_params=(1,2,1),resid_layer_params = \
 # soft mask branch
 # an hourglass unit followed by 2 convolution with 1*1 kernel
 # followed by a sigmoid activation
+    cur_input = hour_glass_unit(cur_input,r,skip_connection,skip_mode,resid_layer_params)
 # last dimension after the output of residual units
-    cur_input = hour_glass_unit(cur_input,r,True,resid_layer_params)
     filters = cur_input.shape[-1]
     cur_input = tf.keras.layers.Conv2D(filters=filters,\
                     kernel_size=1,\
@@ -106,7 +118,8 @@ def attention_unit(input,unit_params=(1,2,1),resid_layer_params = \
                     strides=1,padding='same')(cur_input)
     sig_activation = tf.keras.layers.Activation('sigmoid')(cur_input)
 # multiplication between soft mask and trunk branch output
-# followed by an addition
+# followed by an addition 
+# equivalent to the formula on the paper (1+M(x))*T(x)
     cur_input = tf.keras.layers.Multiply()([sig_activation,trunk_input])
     cur_input = tf.keras.layers.Add()([cur_input,trunk_input])
 # finally p layers of residual units
