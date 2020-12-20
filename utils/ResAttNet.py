@@ -15,7 +15,7 @@ class ResAttNet():
         dense_layer_units is the units used in each dense layer
         '''       
         #super().__init__() 
-        self.ipt = tf.keras.Input(shape = ipt_shape)
+        #self.ipt = tf.keras.Input(shape = ipt_shape)
         self.avgpool_layer = GlobalAveragePooling2D()
         self.flatten_layer = Flatten()
         self.fc_layer_1 = Dense(dense_layer_units,activation='relu')
