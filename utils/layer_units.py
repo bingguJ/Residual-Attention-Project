@@ -117,6 +117,9 @@ def attention_unit(input,unit_params=(1,2,1),skip_connection=False,skip_mode=1,
                     kernel_size=1,\
                     strides=1,padding='same')(cur_input)
     sig_activation = tf.keras.layers.Activation('sigmoid')(cur_input)
+# assign name to this layer 
+    sig_activation = tf.identity(sig_activation, name = 'sigmoid_activation_layer')
+    trunk_input = tf.identity(trunk_input, name = 'trunk_layer_output')
 # multiplication between soft mask and trunk branch output
 # followed by an addition 
 # equivalent to the formula on the paper (1+M(x))*T(x)
