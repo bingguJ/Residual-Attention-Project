@@ -8,7 +8,7 @@ class ResAttNet():
 # number of attention modules and can specify the residual units parameters
 # I tried to make it a subclass of Model, but it didn't work well with my other
 # implementation so I resolve to build manually with a build function inside
-    def __init__(self,ipt_shape, output_size=10, dense_layer_units = 256):
+    def __init__(self,output_size=10, dense_layer_units = 256):
         '''
         Structure inspired by HW2 my_Lenet.py
         output_size: The size of the output. It should be equal to the number of classes.
